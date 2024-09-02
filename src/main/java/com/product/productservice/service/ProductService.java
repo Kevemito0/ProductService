@@ -41,6 +41,13 @@ public class ProductService {
     public Optional<Product> getProductBycode(String code){
         return productRepo.findAll().stream().filter(product -> product.getCode().equals(code)).findFirst();
     }
+    private boolean isCodeExists(String code){
+        return productRepo.findAll().stream().anyMatch(product -> product.getCode().equals(code));
+    }
+
+    private boolean isNameExists(String name){
+        return productRepo.findAll().stream().anyMatch(product -> product.getName().equals(name));
+    }
     public Barcode getExternalBarcode(Long id){
         ResponseEntity<Barcode> result = restClient.get().uri(baseUrl + "/{id}",id).retrieve().toEntity(Barcode.class);
         return result.getBody();
@@ -48,23 +55,19 @@ public class ProductService {
     public Category getExternalCategory(Long id){
         return restClient.get().uri(CategoryBaseUrl + "/{id}",id).retrieve().body(Category.class);
     }
-    public Optional<Product> getProductById(Long id) throws Exception{
-        Optional<Product> product = productRepo.findById(id);
-        if(product.isPresent()){
-            return product;
+    public Product getProductById(Long id) throws Exception{
+        Optional<Product> productOptional = productRepo.findById(id);
+        if(productOptional.isPresent()){
+            return productOptional.get();
         }
         else{
             throw new Exception("Product not found");
         }
     }
 
-    public Product saveProduct(Product product){
-        return productRepo.save(product);
-    }
-
     public void deleteProductById(Long id){
         try {
-            restClient.delete().uri(baseUrl + "/deletebarcode/{barcode}",getProductById(id).get().getBarcode()).retrieve().toEntity(Product.class);
+            restClient.delete().uri(baseUrl + "/deletebarcode/{barcode}",getProductById(id).getBarcode()).retrieve().toEntity(Product.class);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -74,8 +77,9 @@ public class ProductService {
 
     public Product updateProduct(Long id,Product product) throws Exception {
         Optional<Product> productoptional = productRepo.findById(id);
-        Product savedProduct = productRepo.findById(id).get();
+        Product savedProduct;
         if(productoptional.isPresent()){
+            savedProduct = productoptional.get();
             savedProduct.setName(product.getName());
             savedProduct.setBrand(product.getBrand());
             savedProduct.setUnit(product.getUnit());
@@ -88,61 +92,50 @@ public class ProductService {
         return productRepo.save(savedProduct);
     }
 
-    /*
-    public Mono<Product> getProductFromOtherService(String id){
-        return RestClient.get().uri("/api/service1/Products/{id}",id).retrieve().bodyToMono(Product.class);
-    }
-    public Mono<List<Product>> getAllProductsExternal(){
-        return webClient.get().uri("/api/service1/Products").retrieve().bodyToMono(new ParameterizedTypeReference<List<Product>>() {});
-    }
-    public Mono<Product> externalCreateProduct(Product product){
-        return webClient.post().uri("/api/service1/Products").bodyValue(product).retrieve().bodyToMono(Product.class);
-    }
-    public Mono<Product> getProductByCode(String code){
-        return webClient.get().uri("/api/service1/Products/code/{code}",code).retrieve().bodyToMono(Product.class);
-    }
+    public Product createProductAndBarcode (Product product) throws Exception {
+        if(product == null)
+            throw new IllegalAccessException("Product is null");
 
-    public Mono<List<Category>> getAllCategory(){
-        return webClient.get().uri("/api/Categories").retrieve().bodyToMono(new ParameterizedTypeReference<List<Category>>() {});
-    }
+        Optional<Product> existingProduct = productRepo.findById(product.getId());
+        Boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}/validate", product.getCategoryCode()).retrieve().body(Boolean.class);
 
-    public Mono<Category> getCategoryBykasa(String kasa){
-        return webClient.get().uri("/api/Categories/kasa/{kasa}",kasa).retrieve().bodyToMono(Category.class);
-    }
 
-    public Mono<Category> getCategoryByterazi(String terazi){
-        return webClient.get().uri("/api/Categories/terazi/{terazi}",terazi).retrieve().bodyToMono(Category.class);
-    }
-
-    public Mono<Category> getCategoryByproduct(String product){
-        return webClient.get().uri("/api/Categories/product/{product}",product).retrieve().bodyToMono(Category.class);
-    }
-    */
-    public Product createProductAndBarcode(Product product){
-        Optional<Product> existingProduct = getProductBycode(product.getCode());
-        Boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}", product.getCategoryCode()).retrieve().body(Boolean.class);
         if(existingProduct.isPresent()){
             System.out.println("Products exists: " + product.getName() + ", " + product.getCode());
             return existingProduct.get();
         }
-        else if(isValidCategory){
-            product.setBarcode(restClient.post().uri(baseUrl + "/create").
-                    contentType(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(Barcode.class)
-                    .getProductCode());
-            return productRepo.save(product);
+
+
+        if(isValidCategory){
+            product.setCode(generateProductCode(product));
+            if(isCodeExists(product.getCode())){
+                while(isCodeExists(product.getCode())){
+                    product.setCode(generateProductCode(product));
+                }
+            }
+                product.setBarcode(restClient.post().uri(baseUrl + "/create/{productCode}", product.getCode()).
+                        contentType(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(Barcode.class)
+                        .getProductCode());
+
+                return productRepo.save(product);
+
         }
         //throw exception
-        else return null;
+        else throw new Exception("Invalid category");
     }
     public Product changeProductBarcode(Long id,int place) throws Exception{
         if(productRepo.findById(id).isPresent()) {
-            Product product = getProductById(id).get();
+            Product product = getProductById(id);
             String productCode = product.getBarcode();
             String productCategory = getExternalCategory(product.getCategoryCode()).getCategoryName();
             System.out.println(productCategory);
             String prodUnit = String.valueOf(product.getUnit());
+            if(isNameExists(product.getName())){
+                System.out.println("product exists");
+                throw new Exception("Product name already exists");
+            }
 
             if (productCategory.equals("Balık")) //checks if the products category is balik or not
             {
@@ -169,6 +162,17 @@ public class ProductService {
         }
         else
             throw new Exception("Product not found");
+    }
+
+    public String generateProductCode(Product product){
+        StringBuilder productCode = new StringBuilder();
+        String categoryCode = getExternalCategory(product.getCategoryCode()).getCategoryName();
+        String codeBoundries = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        productCode.append(categoryCode.substring(0, 2).toUpperCase());
+        for(int i = 2; i < 5;i++){
+            productCode.append(codeBoundries.charAt(random.nextInt(codeBoundries.length())));
+        }
+        return productCode.toString();
     }
     /*
     //generating only product barcode

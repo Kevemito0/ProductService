@@ -5,10 +5,11 @@ import com.product.productservice.model.Category;
 import com.product.productservice.model.Product;
 import com.product.productservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("api/Products")
@@ -23,25 +24,34 @@ public class ProductController {
         return productService.getAllProducts();
     }
 
-
+    /*
     @GetMapping("/{id}")
     public Optional<Product> getProductById(@PathVariable Long id) throws Exception
     {
         Optional<Product> product = productService.getProductById(id);
         return productService.getProductById(id);
     }
-
+    */
+    @GetMapping("/{id}")
+    ResponseEntity<Product> getProductById(@PathVariable("id") Long id) throws Exception {
+        Product prod = productService.getProductById(id);
+        return ResponseEntity.status(HttpStatus.OK).body(prod);
+    }
     @GetMapping("/code/{code}")
-    public Optional<Product> getProductByCode(@PathVariable String code){return productService.getProductBycode(code);}
+    public ResponseEntity<Product> getProductByCode(@PathVariable String code){
+        Product prod = productService.getProductBycode(code).get();
+        return ResponseEntity.status(HttpStatus.OK).body(prod);
+    }
 
     @GetMapping("/external")
-    public List<Barcode> getAllBarcodes(){
-        return productService.getAllBarcodes();
+    public ResponseEntity<List<Barcode>> getAllBarcodes(){
+        List Barcode =  productService.getAllBarcodes();
+        return ResponseEntity.status(HttpStatus.OK).body(Barcode);
     }
 
     @GetMapping("{prodid}/categoryName")
     public Category getExternalCategory(@PathVariable Long prodid) throws Exception {
-        Long prodCategoryid = getProductById(prodid).get().getCategoryCode();
+        Long prodCategoryid = getProductById(prodid).getBody().getCategoryCode();
         return productService.getExternalCategory(prodCategoryid);
     }
     @GetMapping("/external/{id}")
@@ -50,7 +60,7 @@ public class ProductController {
         return productService.getExternalBarcode(id);
     }
     @PostMapping
-    public Product createProduct(@RequestBody Product product) {
+    public Product createProduct(@RequestBody Product product) throws Exception {
         return productService.createProductAndBarcode(product);
     }
 
@@ -60,7 +70,7 @@ public class ProductController {
     }
 
     @PostMapping("/externalbarcode")
-    public Product createProductAndBarcode(@RequestBody Product product){
+    public Product createProductAndBarcode(@RequestBody Product product) throws Exception {
         return productService.createProductAndBarcode(product);
     }
     @PutMapping("{id}/update/{place}")

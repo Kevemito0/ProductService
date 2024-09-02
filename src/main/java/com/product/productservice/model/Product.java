@@ -4,11 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-enum Units{
-    Kilogram,
-    Adet
-}
-
 @Entity
 @Getter
 @Setter
