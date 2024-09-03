@@ -18,16 +18,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
-@RestController
-@RequestMapping("/api/Products")
-@RequiredArgsConstructor
-@Service
+@RequestMapping("/api/Products") //defining Base uri + makes simple to write wanted uri
+@RequiredArgsConstructor //Lombok annotation that generates constructor for all final fields
+@Service //stereotype for service
 public class ProductService {
-    private final RestClient restClient;
+    private final RestClient restClient; //constructor injection
     String baseUrl = "http://localhost:8080/api/Barcodes";
     String CategoryBaseUrl = "http://localhost:8082/api/category/";
-    @Autowired
-    private ProductRepo productRepo;
+
+    private final ProductRepo productRepo; //constructor injection
 
     private Random random = new Random();
 
@@ -175,36 +174,7 @@ public class ProductService {
         return productCode.toString();
     }
     /*
-    //generating only product barcode
-    private String generateRandomBarcode(String code, int length)
-    {
-        int barcodelength = length;
-        String barcodeLetter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        StringBuilder barcode = new StringBuilder (code);
-        for(int i = 2; i < barcodelength; i++)
-        {
-            int index = random.nextInt(barcodeLetter.length());
-            barcode.append(barcodeLetter.charAt(index));
-        }
-        return barcode.toString();
-    }
-    public Mono<Product> updateProductBarcode(Long id) {
-        return Mono.defer(() -> {
-            Optional<Product> productOptional = productRepo.findById(id);
-            if (productOptional.isPresent()) {
-                Product product = productOptional.get();
-                return getCategoryBykasa("1234")
-                        .flatMap(category -> {
-                            String newBarcode = category.getKasaCode();
-                            product.setCode(newBarcode);
-                            productRepo.save(product);
-                            return Mono.just(product);
-                        });
-            } else {
-                return Mono.empty();
-            }
-        });
-    }
+
 
     public Product updateProductBarcode(Long id){
         Optional<Product> productOptional = productRepo.findById(id);

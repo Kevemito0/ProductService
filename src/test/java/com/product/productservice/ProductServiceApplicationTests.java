@@ -1,8 +1,6 @@
 package com.product.productservice;
 
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.product.productservice.model.Barcode;
 import com.product.productservice.model.Category;
 import com.product.productservice.model.Product;
@@ -11,10 +9,7 @@ import com.product.productservice.repo.ProductRepo;
 import com.product.productservice.service.ProductService;
 import jakarta.inject.Inject;
 import jakarta.persistence.EnumType;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.InjectMocks;
@@ -24,6 +19,7 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
@@ -36,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
 @ExtendWith(MockitoExtension.class)
+@SpringBootTest
 class ProductServiceApplicationTests {
     @InjectMocks
     private ProductService productService;
@@ -45,11 +41,7 @@ class ProductServiceApplicationTests {
     @Mock
     private ProductRepo productRepo;
 
-    @Mock
-    private RestClient restClient;
-
     private Product sampleProduct;
-
 
     @BeforeEach
     void setUp() {
@@ -62,7 +54,8 @@ class ProductServiceApplicationTests {
     }
 
     @Test
-    void getAllProducts() {  // Arrange: Set up the mock behavior
+    void getAllProducts() {
+        // Arrange: Set up the mock behavior
         when(productRepo.findAll()).thenReturn(Arrays.asList(sampleProduct));
 
         // Act: Call the method to be tested
@@ -76,18 +69,22 @@ class ProductServiceApplicationTests {
         verify(productRepo, times(1)).findAll();
     }
 
+    @Test
+    void executeRequest() throws Exception {
+    }
+
 
     @Test
     void getProductById() throws Exception {
         when(productRepo.findById(anyLong())).thenReturn(Optional.of(sampleProduct));
-
         Product product = productService.getProductById(anyLong());
+        assertNotNull(product);
         assertEquals("Sample Product", product.getName());
-
         verify(productRepo, times(1)).findById(anyLong());
     }
     @Test
     void testSaveProduct() throws Exception {
+
         when(productRepo.save(any(Product.class))).thenReturn(sampleProduct);
 
         Product product = productRepo.save(sampleProduct);
