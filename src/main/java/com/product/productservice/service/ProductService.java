@@ -5,12 +5,10 @@ import com.product.productservice.model.Category;
 import com.product.productservice.model.Product;
 import com.product.productservice.repo.ProductRepo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -43,7 +41,6 @@ public class ProductService {
     private boolean isCodeExists(String code){
         return productRepo.findAll().stream().anyMatch(product -> product.getCode().equals(code));
     }
-
     private boolean isNameExists(String name){
         return productRepo.findAll().stream().anyMatch(product -> product.getName().equals(name));
     }
@@ -56,12 +53,14 @@ public class ProductService {
     }
     public Product getProductById(Long id) throws Exception{
         Optional<Product> productOptional = productRepo.findById(id);
+
         if(productOptional.isPresent()){
             return productOptional.get();
         }
         else{
             throw new Exception("Product not found");
         }
+
     }
 
     public void deleteProductById(Long id){
@@ -77,12 +76,24 @@ public class ProductService {
     public Product updateProduct(Long id,Product product) throws Exception {
         Optional<Product> productoptional = productRepo.findById(id);
         Product savedProduct;
-        if(productoptional.isPresent()){
+        Long otherProdCode = productoptional.get().getCategoryCode();
+        Long prodCode = product.getCategoryCode();
+        System.out.println(prodCode);
+        if(productoptional.isPresent() && isCodeExists(product.getCode())){
             savedProduct = productoptional.get();
             savedProduct.setName(product.getName());
             savedProduct.setBrand(product.getBrand());
             savedProduct.setUnit(product.getUnit());
             savedProduct.setCategoryCode(product.getCategoryCode());
+            if(prodCode != otherProdCode){
+                savedProduct.setCode(generateProductCode(savedProduct));
+                restClient.delete().uri(baseUrl + "/deletebarcode/{barcode}",getProductById(id).getBarcode()).retrieve().toEntity(Product.class);
+                savedProduct.setBarcode(restClient.post().uri(baseUrl + "/create/{productCode}", savedProduct.getCode()).
+                        contentType(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(Barcode.class)
+                        .getProductCode());
+            }
             changeProductBarcode(id, 0);
         }
         else{
@@ -94,18 +105,12 @@ public class ProductService {
     public Product createProductAndBarcode (Product product) throws Exception {
         if(product == null)
             throw new IllegalAccessException("Product is null");
+        if(product.getBrand().isEmpty() || product.getBrand().isBlank())
+            throw new IllegalAccessException("Brand is empty");
 
-        Optional<Product> existingProduct = productRepo.findById(product.getId());
-        Boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}/validate", product.getCategoryCode()).retrieve().body(Boolean.class);
-
-
-        if(existingProduct.isPresent()){
-            System.out.println("Products exists: " + product.getName() + ", " + product.getCode());
-            return existingProduct.get();
-        }
-
-
-        if(isValidCategory){
+        boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}/validate", product.getCategoryCode()).retrieve().body(Boolean.class);
+        boolean isNameExists = isNameExists(product.getName());
+        if(isValidCategory && !isNameExists){
             product.setCode(generateProductCode(product));
             if(isCodeExists(product.getCode())){
                 while(isCodeExists(product.getCode())){
@@ -117,50 +122,75 @@ public class ProductService {
                         .retrieve()
                         .body(Barcode.class)
                         .getProductCode());
-
-                return productRepo.save(product);
-
+                productRepo.save(product);
+                changeProductBarcode(product.getId(), 0);
+                return product;
         }
         //throw exception
-        else throw new Exception("Invalid category");
+        else throw new Exception("Invalid category or name already exists");
     }
+
     public Product changeProductBarcode(Long id,int place) throws Exception{
         if(productRepo.findById(id).isPresent()) {
             Product product = getProductById(id);
             String productCode = product.getBarcode();
             String productCategory = getExternalCategory(product.getCategoryCode()).getCategoryName();
-            System.out.println(productCategory);
             String prodUnit = String.valueOf(product.getUnit());
-            if(isNameExists(product.getName())){
-                System.out.println("product exists");
-                throw new Exception("Product name already exists");
-            }
-
+            Barcode barcode = restClient.get()
+                    .uri(baseUrl + "/barcode/{barcode}", productCode)
+                    .retrieve()
+                    .body(Barcode.class);
             if (productCategory.equals("Balık")) //checks if the products category is balik or not
             {
                 if (Objects.equals(prodUnit, "Kilogram")) {
-                    if (place == 0)
-                        product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getScaleCode());
-                    else
-                        product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getProductCode());
+                    product.setBarcode(place == 0 ? barcode.getProductCode() : barcode.getScaleCode());
                 }
                 if (Objects.equals(prodUnit, "Adet")) { //also for the balık
-                    product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getCashregCode());
+                    product.setBarcode(barcode.getCashregCode());
                 }
-            } else if (productCategory.equals("Meyve")) {
-                if (place == 0)
-                    product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getCashregCode());
-                else
-                    product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getProductCode());
-            } else if (productCategory.equals("Et")) {
-                product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getScaleCode());
+            }
+            else if (productCategory.equals("Meyve")){
+                if(Objects.equals(prodUnit, "Kilogram")){
+                    product.setBarcode(place == 0 ? barcode.getProductCode() : barcode.getCashregCode());
+                }
+                else product.setBarcode(barcode.getProductCode());
+
+            }
+            else if (productCategory.equals("Et")) {
+                product.setBarcode(barcode.getScaleCode());
             } else
-                product.setBarcode(restClient.get().uri(baseUrl + "/barcode/{barcode}", productCode).retrieve().body(Barcode.class).getProductCode());
+                product.setBarcode(barcode.getProductCode());
 
             return productRepo.save(product);
         }
-        else
-            throw new Exception("Product not found");
+
+         /*
+            Barcode barcode = restClient.get()
+                    .uri(baseUrl + "/barcode/{barcode}", productCode)
+                    .retrieve()
+                    .body(Barcode.class);
+
+            if (productCategory.equals("Balık")) {
+                if (Objects.equals(prodUnit, "Kilogram")) {
+                    product.setBarcode(place == 0 ? barcode.getProductCode() : barcode.getScaleCode());
+                } else if (Objects.equals(prodUnit, "Adet")) {
+                    product.setBarcode(barcode.getCashregCode());
+                }
+            } else if (productCategory.equals("Meyve")) {
+                if (Objects.equals(prodUnit, "Kilogram")) {
+                    product.setBarcode(place == 0 ? barcode.getProductCode() : (place == 1 ? barcode.getCashregCode() : barcode.getProductCode()));
+                } else {
+                    product.setBarcode(barcode.getProductCode());
+                }
+            } else if (productCategory.equals("Et")) {
+                product.setBarcode(barcode.getScaleCode());
+            } else {
+                product.setBarcode(barcode.getProductCode());
+            }
+
+            return productRepo.save(product);
+            */
+        else throw new Exception("Invalid category or name already exists");
     }
 
     public String generateProductCode(Product product){
@@ -173,24 +203,4 @@ public class ProductService {
         }
         return productCode.toString();
     }
-    /*
-
-
-    public Product updateProductBarcode(Long id){
-        Optional<Product> productOptional = productRepo.findById(id);
-        String productBaseCode;
-        if(productOptional.isPresent()){
-            Product product = productOptional.get();
-            productBaseCode = product.getCategory_code();
-            String newBarcode = generateRandomBarcode(productBaseCode);
-            product.setCode(newBarcode);
-            productRepo.save(product);
-            System.out.println("Updated barcode for product with ID: " + id + " to " + newBarcode);
-            return product;
-        }
-        else {
-            System.out.println("Product with ID: " + id + " not found");
-            return null;
-        }
-    } */
 }

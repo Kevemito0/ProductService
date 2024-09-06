@@ -7,7 +7,6 @@ import com.product.productservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,7 +17,6 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
-
 
     @GetMapping
     public List<Product> getAllProducts() {
@@ -38,7 +36,7 @@ public class ProductController {
 
     @GetMapping("/external")
     public ResponseEntity<List<Barcode>> getAllBarcodes(){
-        List Barcode =  productService.getAllBarcodes();
+        List<Barcode> Barcode =  productService.getAllBarcodes();
         return ResponseEntity.status(HttpStatus.OK).body(Barcode);
     }
 
