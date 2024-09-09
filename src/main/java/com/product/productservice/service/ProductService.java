@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
-@RequestMapping("/api/Products") //defining Base uri + makes simple to write wanted uri
+@RequestMapping("/api/Products") //defining the Base uri + makes simple to write wanted uri
 @RequiredArgsConstructor //Lombok annotation that generates constructor for all final fields
 @Service //stereotype for service
 public class ProductService {
@@ -74,56 +74,55 @@ public class ProductService {
     }
 
     public Product updateProduct(Long id,Product product) throws Exception {
-        Optional<Product> productoptional = productRepo.findById(id);
+        Optional<Product> productoptional = productRepo.findById(id); // id of the product that will be updated
         Product savedProduct;
         Long otherProdCode = productoptional.get().getCategoryCode();
         Long prodCode = product.getCategoryCode();
-        System.out.println(prodCode);
-        if(productoptional.isPresent() && isCodeExists(product.getCode())){
-            savedProduct = productoptional.get();
-            savedProduct.setName(product.getName());
-            savedProduct.setBrand(product.getBrand());
-            savedProduct.setUnit(product.getUnit());
-            savedProduct.setCategoryCode(product.getCategoryCode());
-            if(prodCode != otherProdCode){
-                savedProduct.setCode(generateProductCode(savedProduct));
-                restClient.delete().uri(baseUrl + "/deletebarcode/{barcode}",getProductById(id).getBarcode()).retrieve().toEntity(Product.class);
+        if(productoptional.isPresent() && isCodeExists(productoptional.get().getCode()) && !product.getName().isBlank()){
+            savedProduct = productoptional.get(); // we get the product in the database for update
+            savedProduct.setName(product.getName()); // setting the new name
+            savedProduct.setBrand(product.getBrand()); // setting the new brand
+            savedProduct.setUnit(product.getUnit()); // setting the new Unit
+            savedProduct.setCategoryCode(product.getCategoryCode()); //setting the new category code
+            if(prodCode != otherProdCode){ // if category code changed we need to change products code also
+                savedProduct.setCode(generateProductCode(savedProduct)); // generating new product code with new category code
+                restClient.delete().uri(baseUrl + "/deletebarcode/{barcode}",getProductById(id).getBarcode()).retrieve().toEntity(Product.class); // deleting old products barcode
                 savedProduct.setBarcode(restClient.post().uri(baseUrl + "/create/{productCode}", savedProduct.getCode()).
                         contentType(MediaType.APPLICATION_JSON)
                         .retrieve()
                         .body(Barcode.class)
-                        .getProductCode());
+                        .getProductCode()); // creating and binding new barcode for updated product with its new prodCode because of scaleCode
             }
-            changeProductBarcode(id, 0);
+            changeProductBarcode(id, 0); // binding default barcode for updated broduct
         }
         else{
-            throw new RuntimeException("Product not found");
+                throw new RuntimeException("Product not found Or Category code invalid"); // if product to be updated does not exist or category code is invalid we get this error
         }
         return productRepo.save(savedProduct);
     }
 
     public Product createProductAndBarcode (Product product) throws Exception {
         if(product == null)
-            throw new IllegalAccessException("Product is null");
-        if(product.getBrand().isEmpty() || product.getBrand().isBlank())
+            throw new IllegalAccessException("Product is null"); // if the product that will be created is null
+        if(product.getBrand().isEmpty() || product.getBrand().isBlank()) // if the brand is empty or null
             throw new IllegalAccessException("Brand is empty");
 
-        boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}/validate", product.getCategoryCode()).retrieve().body(Boolean.class);
-        boolean isNameExists = isNameExists(product.getName());
+        boolean isValidCategory = restClient.get().uri(CategoryBaseUrl + "{id}/validate", product.getCategoryCode()).retrieve().body(Boolean.class); //checks if the category code is valid
+        boolean isNameExists = isNameExists(product.getName()); // checks that name is already exist
         if(isValidCategory && !isNameExists){
-            product.setCode(generateProductCode(product));
+            product.setCode(generateProductCode(product)); // creating prodCode
             if(isCodeExists(product.getCode())){
-                while(isCodeExists(product.getCode())){
-                    product.setCode(generateProductCode(product));
+                while(isCodeExists(product.getCode())){ // loop for creating unique code because we don't want to get error when creating
+                    product.setCode(generateProductCode(product)); //this works until created prodCode is not exist
                 }
             }
                 product.setBarcode(restClient.post().uri(baseUrl + "/create/{productCode}", product.getCode()).
                         contentType(MediaType.APPLICATION_JSON)
                         .retrieve()
                         .body(Barcode.class)
-                        .getProductCode());
-                productRepo.save(product);
-                changeProductBarcode(product.getId(), 0);
+                        .getProductCode()); // creating barcode from BarcodeService and takes the default product barcode
+                productRepo.save(product); //saving product so changeproductbarcode function can work
+                changeProductBarcode(product.getId(), 0); //placing default barcode for created product
                 return product;
         }
         //throw exception
@@ -131,7 +130,7 @@ public class ProductService {
     }
 
     public Product changeProductBarcode(Long id,int place) throws Exception{
-        if(productRepo.findById(id).isPresent()) {
+        if(productRepo.findById(id).isPresent()) { //checking if the product is present in the database
             Product product = getProductById(id);
             String productCode = product.getBarcode();
             String productCategory = getExternalCategory(product.getCategoryCode()).getCategoryName();
@@ -139,7 +138,7 @@ public class ProductService {
             Barcode barcode = restClient.get()
                     .uri(baseUrl + "/barcode/{barcode}", productCode)
                     .retrieve()
-                    .body(Barcode.class);
+                    .body(Barcode.class); //getting the barcode class from barcodeService
             if (productCategory.equals("Balık")) //checks if the products category is balik or not
             {
                 if (Objects.equals(prodUnit, "Kilogram")) {

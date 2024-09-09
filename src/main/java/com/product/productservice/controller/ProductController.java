@@ -7,10 +7,10 @@ import com.product.productservice.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
 @RestController  //this way we don't need to add a @ResponseBody
 @RequestMapping("api/Products")
 @RequiredArgsConstructor

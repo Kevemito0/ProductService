@@ -1,29 +1,16 @@
 package com.product.productservice;
 
 
-import com.product.productservice.model.Barcode;
-import com.product.productservice.model.Category;
 import com.product.productservice.model.Product;
 import com.product.productservice.model.Units;
 import com.product.productservice.repo.ProductRepo;
 import com.product.productservice.service.ProductService;
-import jakarta.inject.Inject;
-import jakarta.persistence.EnumType;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestTemplate;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
