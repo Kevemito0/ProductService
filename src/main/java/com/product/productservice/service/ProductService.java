@@ -162,33 +162,6 @@ public class ProductService {
 
             return productRepo.save(product);
         }
-
-         /*
-            Barcode barcode = restClient.get()
-                    .uri(baseUrl + "/barcode/{barcode}", productCode)
-                    .retrieve()
-                    .body(Barcode.class);
-
-            if (productCategory.equals("Balık")) {
-                if (Objects.equals(prodUnit, "Kilogram")) {
-                    product.setBarcode(place == 0 ? barcode.getProductCode() : barcode.getScaleCode());
-                } else if (Objects.equals(prodUnit, "Adet")) {
-                    product.setBarcode(barcode.getCashregCode());
-                }
-            } else if (productCategory.equals("Meyve")) {
-                if (Objects.equals(prodUnit, "Kilogram")) {
-                    product.setBarcode(place == 0 ? barcode.getProductCode() : (place == 1 ? barcode.getCashregCode() : barcode.getProductCode()));
-                } else {
-                    product.setBarcode(barcode.getProductCode());
-                }
-            } else if (productCategory.equals("Et")) {
-                product.setBarcode(barcode.getScaleCode());
-            } else {
-                product.setBarcode(barcode.getProductCode());
-            }
-
-            return productRepo.save(product);
-            */
         else throw new Exception("Invalid category or name already exists");
     }
 
